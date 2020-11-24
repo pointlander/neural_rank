@@ -7,10 +7,31 @@ package main
 import (
 	"fmt"
 	"math"
+	"sort"
 
 	"github.com/pointlander/gradient/tf32"
 	"github.com/pointlander/pagerank"
 )
+
+// PrintRanks prints the ranks
+func PrintRanks(ranks []float32) {
+	type Pair struct {
+		Index int
+		Rank  float32
+	}
+	pairs := make([]Pair, len(ranks))
+	for i := range pairs {
+		pairs[i].Index = i
+		pairs[i].Rank = ranks[i]
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].Rank < pairs[j].Rank
+	})
+	for i := range pairs {
+		fmt.Printf("%d ", pairs[i].Index)
+	}
+	fmt.Printf("\n")
+}
 
 func main() {
 	set := tf32.NewSet()
@@ -28,8 +49,8 @@ func main() {
 
 	deltas := make([]float32, len(x.X))
 
-	l1 := tf32.Sigmoid(tf32.Mul(set.Get("A"), x.Meta()))
-	l2 := tf32.Sigmoid(tf32.Mul(set.Get("A"), l1))
+	l1 := tf32.Softmax(tf32.Mul(set.Get("A"), x.Meta()))
+	l2 := tf32.Softmax(tf32.Mul(set.Get("A"), l1))
 	cost := tf32.Avg(tf32.Quadratic(x.Meta(), l2))
 
 	iterations := 8
@@ -54,10 +75,10 @@ func main() {
 		}
 		fmt.Println(total)
 	}
-	fmt.Println(x.X)
+	PrintRanks(x.X)
 
 	l1(func(a *tf32.V) bool {
-		fmt.Println(a.X)
+		PrintRanks(a.X)
 		return true
 	})
 
@@ -73,5 +94,5 @@ func main() {
 	graph.Rank(0.85, 0.000001, func(node uint64, rank float64) {
 		ranks[node] = float32(rank)
 	})
-	fmt.Println(ranks)
+	PrintRanks(ranks)
 }
