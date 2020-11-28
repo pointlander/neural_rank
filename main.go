@@ -11,10 +11,13 @@ import (
 
 	"github.com/pointlander/gradient/tf32"
 	"github.com/pointlander/pagerank"
+
+	"github.com/texttheater/golang-levenshtein/levenshtein"
 )
 
 // PrintRanks prints the ranks
-func PrintRanks(ranks []float32) {
+func PrintRanks(ranks []float32) []rune {
+	sorted := make([]rune, 0, 8)
 	type Pair struct {
 		Index int
 		Rank  float32
@@ -28,9 +31,11 @@ func PrintRanks(ranks []float32) {
 		return pairs[i].Rank < pairs[j].Rank
 	})
 	for i := range pairs {
+		sorted = append(sorted, rune(pairs[i].Index))
 		fmt.Printf("%d ", pairs[i].Index)
 	}
 	fmt.Printf("\n")
+	return sorted
 }
 
 func main() {
@@ -75,7 +80,7 @@ func main() {
 		}
 		fmt.Println(total)
 	}
-	PrintRanks(x.X)
+	nonlinear := PrintRanks(x.X)
 
 	l1(func(a *tf32.V) bool {
 		PrintRanks(a.X)
@@ -94,5 +99,8 @@ func main() {
 	graph.Rank(0.85, 0.000001, func(node uint64, rank float64) {
 		ranks[node] = float32(rank)
 	})
-	PrintRanks(ranks)
+	linear := PrintRanks(ranks)
+
+	distance := levenshtein.DistanceForStrings(nonlinear, linear, levenshtein.DefaultOptions)
+	fmt.Println(distance)
 }
