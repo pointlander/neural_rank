@@ -15,6 +15,11 @@ import (
 	"github.com/texttheater/golang-levenshtein/levenshtein"
 )
 
+const (
+	// Size is the size of the adjacency matrix
+	Size = 5
+)
+
 // PrintRanks prints the ranks
 func PrintRanks(ranks []float32) []rune {
 	sorted := make([]rune, 0, 8)
@@ -40,7 +45,7 @@ func PrintRanks(ranks []float32) []rune {
 
 func main() {
 	set := tf32.NewSet()
-	set.Add("A", 5, 5)
+	set.Add("A", Size, Size)
 
 	a := set.ByName["A"]
 	a.X = append(a.X, 0, 0, 0, 0, 1)
@@ -49,7 +54,7 @@ func main() {
 	a.X = append(a.X, 0, 1, .5, 0, 0)
 	a.X = append(a.X, 0, 0, .5, 1, 0)
 
-	x := tf32.NewV(5)
+	x := tf32.NewV(Size)
 	x.X = x.X[:cap(x.X)]
 
 	deltas := make([]float32, len(x.X))
@@ -87,15 +92,17 @@ func main() {
 		return true
 	})
 
-	graph := pagerank.NewGraph64()
-	graph.Link(4, 0, 1)
-	graph.Link(0, 1, .5)
-	graph.Link(0, 2, .5)
-	graph.Link(1, 3, 1)
-	graph.Link(2, 3, .5)
-	graph.Link(2, 4, .5)
-	graph.Link(3, 4, 1)
-	ranks := make([]float32, 5)
+	graph, index := pagerank.NewGraph64(), 0
+	for i := 0; i < Size; i++ {
+		for j := 0; j < Size; j++ {
+			x := a.X[index]
+			if x != 0 {
+				graph.Link(uint64(j), uint64(i), float64(x))
+			}
+			index++
+		}
+	}
+	ranks := make([]float32, Size)
 	graph.Rank(0.85, 0.000001, func(node uint64, rank float64) {
 		ranks[node] = float32(rank)
 	})
