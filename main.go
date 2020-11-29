@@ -20,8 +20,8 @@ const (
 	Size = 5
 )
 
-// PrintRanks prints the ranks
-func PrintRanks(ranks []float32) []rune {
+// Ranks retunrs an array of ranks
+func Ranks(ranks []float32) []rune {
 	sorted := make([]rune, 0, 8)
 	type Pair struct {
 		Index int
@@ -37,22 +37,15 @@ func PrintRanks(ranks []float32) []rune {
 	})
 	for i := range pairs {
 		sorted = append(sorted, rune(pairs[i].Index))
-		fmt.Printf("%d ", pairs[i].Index)
 	}
-	fmt.Printf("\n")
 	return sorted
 }
 
-func main() {
-	set := tf32.NewSet()
-	set.Add("A", Size, Size)
+// RankCompare compares two ranking function
+func RankCompare(set *tf32.Set) []int {
+	distances := make([]int, 2)
 
 	a := set.ByName["A"]
-	a.X = append(a.X, 0, 0, 0, 0, 1)
-	a.X = append(a.X, .5, 0, 0, 0, 0)
-	a.X = append(a.X, .5, 0, 0, 0, 0)
-	a.X = append(a.X, 0, 1, .5, 0, 0)
-	a.X = append(a.X, 0, 0, .5, 1, 0)
 
 	x := tf32.NewV(Size)
 	x.X = x.X[:cap(x.X)]
@@ -83,12 +76,15 @@ func main() {
 			deltas[l] = alpha*deltas[l] - eta*d*scaling
 			x.X[l] += deltas[l]
 		}
-		fmt.Println(total)
+		if total < 1e-6 {
+			break
+		}
 	}
-	nonlinear := PrintRanks(x.X)
+	nonlinear := Ranks(x.X)
 
+	var nonlinearMiddle []rune
 	l1(func(a *tf32.V) bool {
-		PrintRanks(a.X)
+		nonlinearMiddle = Ranks(a.X)
 		return true
 	})
 
@@ -106,8 +102,22 @@ func main() {
 	graph.Rank(0.85, 0.000001, func(node uint64, rank float64) {
 		ranks[node] = float32(rank)
 	})
-	linear := PrintRanks(ranks)
+	linear := Ranks(ranks)
 
-	distance := levenshtein.DistanceForStrings(nonlinear, linear, levenshtein.DefaultOptions)
-	fmt.Println(distance)
+	distances[0] = levenshtein.DistanceForStrings(nonlinearMiddle, linear, levenshtein.DefaultOptions)
+	distances[1] = levenshtein.DistanceForStrings(nonlinear, linear, levenshtein.DefaultOptions)
+	return distances
+}
+
+func main() {
+	set := tf32.NewSet()
+	set.Add("A", Size, Size)
+	a := set.ByName["A"]
+	a.X = append(a.X, 0, 0, 0, 0, 1)
+	a.X = append(a.X, .5, 0, 0, 0, 0)
+	a.X = append(a.X, .5, 0, 0, 0, 0)
+	a.X = append(a.X, 0, 1, .5, 0, 0)
+	a.X = append(a.X, 0, 0, .5, 1, 0)
+	distances := RankCompare(&set)
+	fmt.Println(distances)
 }

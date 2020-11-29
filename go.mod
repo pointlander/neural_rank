@@ -1,6 +1,6 @@
 module github.com/pointlander/neural_rank
 
-go 1.15
+go 1.13
 
 require (
 	github.com/pointlander/gradient v0.0.0-20200814011906-3fd7f011260a
