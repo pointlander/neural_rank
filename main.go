@@ -7,6 +7,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"math/rand"
 	"sort"
 
 	"github.com/pointlander/gradient/tf32"
@@ -110,6 +111,8 @@ func RankCompare(set *tf32.Set) []int {
 }
 
 func main() {
+	rand.Seed(1)
+
 	set := tf32.NewSet()
 	set.Add("A", Size, Size)
 	a := set.ByName["A"]
@@ -120,4 +123,18 @@ func main() {
 	a.X = append(a.X, 0, 0, .5, 1, 0)
 	distances := RankCompare(&set)
 	fmt.Println(distances)
+
+	distances = make([]int, 2)
+	for i := 0; i < 1024; i++ {
+		for i := range a.X {
+			if rand.Intn(2) == 0 {
+				a.X[i] = float32(math.Abs(rand.NormFloat64()))
+			}
+		}
+		d := RankCompare(&set)
+		for i, v := range d {
+			distances[i] += v
+		}
+	}
+	fmt.Println(float64(distances[0])/1024, float64(distances[1])/1024)
 }
