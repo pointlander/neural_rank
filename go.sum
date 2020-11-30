@@ -22,6 +22,10 @@ github.com/google/go-cmp v0.3.1/go.mod h1:8QqcDgzrUqlUb/G2PQTWiueGozuR1884gddMyw
 github.com/google/go-cmp v0.4.0/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
 github.com/pointlander/gradient v0.0.0-20200814011906-3fd7f011260a h1:aiPk3xA6uS4KIDwcDsRYG/M0g+GY56tsFOlqS3pa0ko=
 github.com/pointlander/gradient v0.0.0-20200814011906-3fd7f011260a/go.mod h1:omn6KDIN5DaaxLkTo3wM1WP1CFHN+izYD7FWjDdPlXU=
+github.com/pointlander/gradient v0.0.0-20201130005422-11c9b9690084 h1:sZDlaaR8uLYgkAFfNCXrdRMD0UbOl7BDeCdVHcjmcdY=
+github.com/pointlander/gradient v0.0.0-20201130005422-11c9b9690084/go.mod h1:omn6KDIN5DaaxLkTo3wM1WP1CFHN+izYD7FWjDdPlXU=
+github.com/pointlander/gradient v0.0.0-20201130010055-d77102f9a5fc h1:KKg98GV38qH27iNlhW9xuTypivaPaxd2t8Fs1aur95o=
+github.com/pointlander/gradient v0.0.0-20201130010055-d77102f9a5fc/go.mod h1:omn6KDIN5DaaxLkTo3wM1WP1CFHN+izYD7FWjDdPlXU=
 github.com/pointlander/pagerank v0.0.0-20200407052526-f688f620f662 h1:QXmMptedBLD6mUxMaiTwyOoJ739hboc+HMGMuXFU0UE=
 github.com/pointlander/pagerank v0.0.0-20200407052526-f688f620f662/go.mod h1:OjGf5Z5lF/orWk5DWkRMuoZTVqkPkDXFLnQBEoZPPYg=
 github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4/go.mod h1:xMI15A0UPsDsEKsMN9yxemIoYk6Tm2C1GtYGdfGttqA=
