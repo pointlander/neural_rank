@@ -149,6 +149,7 @@ func RankCompareComplex(set *tf32.Set) []int {
 			for k := 0; k < Size; k++ {
 				forward += float64(a.X[k*Size+j])
 			}
+			// https://www.sciencedirect.com/science/article/pii/S0972860019300945
 			ac.X = append(ac.X, complex((forward+back)/2, (forward-back)/2))
 			index++
 		}
