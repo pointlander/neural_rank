@@ -142,16 +142,11 @@ func RankCompareComplex(set *tf32.Set) []int {
 	s.Add("A", Size, Size)
 	ac := s.ByName["A"]
 
-	index := 0
 	for i := 0; i < Size; i++ {
 		for j := 0; j < Size; j++ {
-			forward, back := 0.0, float64(a.X[index])
-			for k := 0; k < Size; k++ {
-				forward += float64(a.X[k*Size+j])
-			}
+			forward, back := float64(a.X[i*Size+j]), float64(a.X[j*Size+i])
 			// https://www.sciencedirect.com/science/article/pii/S0972860019300945
 			ac.X = append(ac.X, complex((forward+back)/2, (forward-back)/2))
-			index++
 		}
 	}
 
