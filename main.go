@@ -111,6 +111,17 @@ func TruthRank(set *tf32.Set) {
 		}
 		fmt.Printf("\n")
 	}
+	fmt.Printf("\n")
+
+	l1(func(a *tf32.V) bool {
+		for i := 0; i < Size; i++ {
+			for j := 0; j < Size; j++ {
+				fmt.Printf("%f ", a.X[i*Size+j])
+			}
+			fmt.Printf("\n")
+		}
+		return true
+	})
 
 	return
 }
