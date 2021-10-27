@@ -56,7 +56,7 @@ func TruthRank(set *tf32.Set) {
 
 	deltas := make([]float32, len(a.X))
 
-	l1 := tf32.Mul(set.Get("A"), tf32.T(set.Get("A")))
+	l1 := tf32.Mul(set.Get("A"), set.Get("A"))
 	cost := tf32.Avg(tf32.Quadratic(x.Meta(), l1))
 
 	iterations := 128
