@@ -87,7 +87,6 @@ func TruthRank(set *tf32.Set) {
 			d += aa.D[l]
 			deltas[l] = alpha*deltas[l] - eta*d*scaling
 			a.X[l] += deltas[l]
-			aa.X[l] += deltas[l]
 		}
 		points = append(points, plotter.XY{X: float64(i), Y: float64(total)})
 		if total < 1e-6 {
