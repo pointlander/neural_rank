@@ -36,6 +36,9 @@ var (
 // TruthRank computes the self consistency of a matrix
 func TruthRank(set *tf32.Set) {
 	a := set.ByName["A"]
+	cp := set.Copy()
+	aa := cp.ByName["A"]
+
 	for i := 0; i < Size; i++ {
 		for j := 0; j < Size; j++ {
 			fmt.Printf("%f ", a.X[i*Size+j])
@@ -56,7 +59,7 @@ func TruthRank(set *tf32.Set) {
 
 	deltas := make([]float32, len(a.X))
 
-	l1 := tf32.Mul(set.Get("A"), set.Get("A"))
+	l1 := tf32.Mul(set.Get("A"), cp.Get("A"))
 	cost := tf32.Avg(tf32.Quadratic(x.Meta(), l1))
 
 	iterations := 128
@@ -64,11 +67,15 @@ func TruthRank(set *tf32.Set) {
 	alpha, eta := float32(.3), float32(.3)
 	for i := 0; i < iterations; i++ {
 		set.Zero()
+		cp.Zero()
 		x.Zero()
 
 		total := tf32.Gradient(cost).X[0]
 		norm := float32(0)
 		for _, d := range a.D {
+			norm += d * d
+		}
+		for _, d := range aa.D {
 			norm += d * d
 		}
 		norm = float32(math.Sqrt(float64(norm)))
@@ -77,8 +84,10 @@ func TruthRank(set *tf32.Set) {
 			scaling = 1 / norm
 		}
 		for l, d := range a.D {
+			d += aa.D[l]
 			deltas[l] = alpha*deltas[l] - eta*d*scaling
 			a.X[l] += deltas[l]
+			aa.X[l] += deltas[l]
 		}
 		points = append(points, plotter.XY{X: float64(i), Y: float64(total)})
 		if total < 1e-6 {
@@ -139,7 +148,7 @@ func Ranks(ranks []float32) []rune {
 		pairs[i].Rank = ranks[i]
 	}
 	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i].Rank < pairs[j].Rank
+		return pairs[i].Rank > pairs[j].Rank
 	})
 	for i := range pairs {
 		sorted = append(sorted, rune(pairs[i].Index))
@@ -148,7 +157,7 @@ func Ranks(ranks []float32) []rune {
 }
 
 // RankCompare compares two ranking function
-func RankCompare(set *tf32.Set) []int {
+func RankCompare(set *tf32.Set, verbose bool) []int {
 	distances := make([]int, 2)
 
 	a := set.ByName["A"]
@@ -212,6 +221,11 @@ func RankCompare(set *tf32.Set) []int {
 
 	distances[0] = levenshtein.DistanceForStrings(nonlinearMiddle, linear, levenshtein.DefaultOptions)
 	distances[1] = levenshtein.DistanceForStrings(nonlinear, linear, levenshtein.DefaultOptions)
+	if verbose {
+		fmt.Println(linear)
+		fmt.Println(nonlinearMiddle)
+		fmt.Println(nonlinear)
+	}
 	return distances
 }
 
@@ -233,7 +247,7 @@ func RanksComplex(ranks []complex128) []rune {
 		pairs[i].Rank = float32(cmplx.Abs(ranks[i]))
 	}
 	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i].Rank < pairs[j].Rank
+		return pairs[i].Rank > pairs[j].Rank
 	})
 	for i := range pairs {
 		sorted = append(sorted, rune(pairs[i].Index))
@@ -337,10 +351,12 @@ func main() {
 
 	if *TruthFlag {
 		TruthRank(&set)
+		distances := RankCompare(&set, true)
+		fmt.Println(distances)
 		return
 	}
 
-	distances := RankCompare(&set)
+	distances := RankCompare(&set, true)
 	fmt.Println(distances)
 
 	distances, x := RankCompareComplex(&set)
@@ -356,7 +372,7 @@ func main() {
 				a.X[i] = float32(math.Abs(rand.NormFloat64()))
 			}
 		}
-		d := RankCompare(&set)
+		d := RankCompare(&set, false)
 		for i, v := range d {
 			distances[i] += v
 		}
