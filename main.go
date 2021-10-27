@@ -5,6 +5,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"math"
 	"math/cmplx"
@@ -16,12 +17,103 @@ import (
 	"github.com/pointlander/pagerank"
 
 	"github.com/texttheater/golang-levenshtein/levenshtein"
+	"gonum.org/v1/plot"
+	"gonum.org/v1/plot/plotter"
+	"gonum.org/v1/plot/vg"
+	"gonum.org/v1/plot/vg/draw"
 )
 
 const (
 	// Size is the size of the adjacency matrix
 	Size = 5
 )
+
+var (
+	// TruthFlag truth mode
+	TruthFlag = flag.Bool("truth", false, "compute the truth matrix")
+)
+
+// TruthRank computes the self consistency of a matrix
+func TruthRank(set *tf32.Set) {
+	a := set.ByName["A"]
+	for i := 0; i < Size; i++ {
+		for j := 0; j < Size; j++ {
+			fmt.Printf("%f ", a.X[i*Size+j])
+		}
+		fmt.Printf("\n")
+	}
+	fmt.Printf("\n")
+
+	x := tf32.NewV(Size, Size)
+	x.X = x.X[:cap(x.X)]
+	for i := 0; i < Size; i++ {
+		for j := 0; j < Size; j++ {
+			if i == j {
+				x.X[i*Size+j] = 1
+			}
+		}
+	}
+
+	deltas := make([]float32, len(a.X))
+
+	l1 := tf32.Mul(set.Get("A"), tf32.T(set.Get("A")))
+	cost := tf32.Avg(tf32.Quadratic(x.Meta(), l1))
+
+	iterations := 128
+	points := make(plotter.XYs, 0, iterations)
+	alpha, eta := float32(.3), float32(.3)
+	for i := 0; i < iterations; i++ {
+		set.Zero()
+		x.Zero()
+
+		total := tf32.Gradient(cost).X[0]
+		norm := float32(0)
+		for _, d := range a.D {
+			norm += d * d
+		}
+		norm = float32(math.Sqrt(float64(norm)))
+		scaling := float32(1)
+		if norm > 1 {
+			scaling = 1 / norm
+		}
+		for l, d := range a.D {
+			deltas[l] = alpha*deltas[l] - eta*d*scaling
+			a.X[l] += deltas[l]
+		}
+		points = append(points, plotter.XY{X: float64(i), Y: float64(total)})
+		if total < 1e-6 {
+			break
+		}
+	}
+
+	p := plot.New()
+
+	p.Title.Text = "epochs vs cost"
+	p.X.Label.Text = "epochs"
+	p.Y.Label.Text = "cost"
+
+	scatter, err := plotter.NewScatter(points)
+	if err != nil {
+		panic(err)
+	}
+	scatter.GlyphStyle.Radius = vg.Length(1)
+	scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+	p.Add(scatter)
+
+	err = p.Save(8*vg.Inch, 8*vg.Inch, "cost.png")
+	if err != nil {
+		panic(err)
+	}
+
+	for i := 0; i < Size; i++ {
+		for j := 0; j < Size; j++ {
+			fmt.Printf("%f ", a.X[i*Size+j])
+		}
+		fmt.Printf("\n")
+	}
+
+	return
+}
 
 // Ranks retunrs an array of ranks
 func Ranks(ranks []float32) []rune {
@@ -122,6 +214,11 @@ func RanksComplex(ranks []complex128) []rune {
 	pairs := make([]Pair, len(ranks))
 	for i := range pairs {
 		pairs[i].Index = i
+		/*phase := cmplx.Phase(ranks[i])
+		if phase < 0 {
+			phase += 2 * math.Pi
+		}
+		pairs[i].Rank = float32(phase)*/
 		pairs[i].Rank = float32(cmplx.Abs(ranks[i]))
 	}
 	sort.Slice(pairs, func(i, j int) bool {
@@ -134,7 +231,7 @@ func RanksComplex(ranks []complex128) []rune {
 }
 
 // RankCompareComplex compares two ranking function
-func RankCompareComplex(set *tf32.Set) []int {
+func RankCompareComplex(set *tf32.Set) ([]int, *tc128.V) {
 	distances := make([]int, 2)
 	a := set.ByName["A"]
 
@@ -210,10 +307,12 @@ func RankCompareComplex(set *tf32.Set) []int {
 	distances[0] = levenshtein.DistanceForStrings(nonlinearMiddle, linear, levenshtein.DefaultOptions)
 	distances[1] = levenshtein.DistanceForStrings(nonlinear, linear, levenshtein.DefaultOptions)
 
-	return distances
+	return distances, &x
 }
 
 func main() {
+	flag.Parse()
+
 	rand.Seed(1)
 
 	set := tf32.NewSet()
@@ -224,11 +323,20 @@ func main() {
 	a.X = append(a.X, .5, 0, 0, 0, 0)
 	a.X = append(a.X, 0, 1, .5, 0, 0)
 	a.X = append(a.X, 0, 0, .5, 1, 0)
+
+	if *TruthFlag {
+		TruthRank(&set)
+		return
+	}
+
 	distances := RankCompare(&set)
 	fmt.Println(distances)
 
-	distances = RankCompareComplex(&set)
+	distances, x := RankCompareComplex(&set)
 	fmt.Println(distances)
+	for _, value := range x.X {
+		fmt.Println(cmplx.Abs(value), cmplx.Phase(value))
+	}
 
 	distances, distancesComplex := make([]int, 2), make([]int, 2)
 	for i := 0; i < 1024; i++ {
@@ -241,7 +349,7 @@ func main() {
 		for i, v := range d {
 			distances[i] += v
 		}
-		d = RankCompareComplex(&set)
+		d, _ = RankCompareComplex(&set)
 		for i, v := range d {
 			distancesComplex[i] += v
 		}
