@@ -31,6 +31,8 @@ const (
 var (
 	// TruthFlag truth mode
 	TruthFlag = flag.Bool("truth", false, "compute the truth matrix")
+	// TruthComplexFlag truth complex mode
+	TruthComplexFlag = flag.Bool("truthcomplex", false, "compute the truth complex matrix")
 )
 
 // TruthRank computes the self consistency of a matrix
@@ -228,6 +230,120 @@ func RankCompare(set *tf32.Set, verbose bool) []int {
 	return distances
 }
 
+// TruthRankComplex computes the self consistency of a complex matrix
+func TruthRankComplex(set *tf32.Set) {
+	a := set.ByName["A"]
+
+	s := tc128.NewSet()
+	s.Add("A", Size, Size)
+	ac := s.ByName["A"]
+
+	for i := 0; i < Size; i++ {
+		for j := 0; j < Size; j++ {
+			forward, back := float64(a.X[i*Size+j]), float64(a.X[j*Size+i])
+			// https://www.sciencedirect.com/science/article/pii/S0972860019300945
+			ac.X = append(ac.X, complex((forward+back)/2, (forward-back)/2))
+		}
+	}
+
+	cp := s.Copy()
+	aa := cp.ByName["A"]
+
+	for i := 0; i < Size; i++ {
+		for j := 0; j < Size; j++ {
+			fmt.Printf("%f ", a.X[i*Size+j])
+		}
+		fmt.Printf("\n")
+	}
+	fmt.Printf("\n")
+
+	x := tc128.NewV(Size, Size)
+	x.X = x.X[:cap(x.X)]
+	for i := 0; i < Size; i++ {
+		for j := 0; j < Size; j++ {
+			if i == j {
+				x.X[i*Size+j] = 1
+			}
+		}
+	}
+
+	deltas := make([]complex128, len(a.X))
+
+	l1 := tc128.Mul(s.Get("A"), cp.Get("A"))
+	cost := tc128.Avg(tc128.Quadratic(x.Meta(), l1))
+
+	iterations := 1024
+	points := make(plotter.XYs, 0, iterations)
+	alpha, eta := complex(.1, .1), complex(.1, .1)
+	for i := 0; i < iterations; i++ {
+		s.Zero()
+		cp.Zero()
+		x.Zero()
+
+		total := tc128.Gradient(cost).X[0]
+		norm := complex128(0)
+		for _, d := range ac.D {
+			norm += d * d
+		}
+		for _, d := range aa.D {
+			norm += d * d
+		}
+		norm = cmplx.Sqrt(norm)
+		scaling := complex(1, 0)
+		if cmplx.Abs(norm) > 1 {
+			scaling = 1 / norm
+		}
+		for l, d := range ac.D {
+			d += aa.D[l]
+			deltas[l] = alpha*deltas[l] - eta*d*scaling
+			ac.X[l] += deltas[l]
+		}
+		points = append(points, plotter.XY{X: float64(i), Y: cmplx.Abs(total)})
+		if cmplx.Abs(total) < 1e-6 {
+			break
+		}
+	}
+
+	p := plot.New()
+
+	p.Title.Text = "epochs vs cost"
+	p.X.Label.Text = "epochs"
+	p.Y.Label.Text = "cost"
+
+	scatter, err := plotter.NewScatter(points)
+	if err != nil {
+		panic(err)
+	}
+	scatter.GlyphStyle.Radius = vg.Length(1)
+	scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+	p.Add(scatter)
+
+	err = p.Save(8*vg.Inch, 8*vg.Inch, "cost.png")
+	if err != nil {
+		panic(err)
+	}
+
+	for i := 0; i < Size; i++ {
+		for j := 0; j < Size; j++ {
+			fmt.Printf("%f ", cmplx.Abs(ac.X[i*Size+j]))
+		}
+		fmt.Printf("\n")
+	}
+	fmt.Printf("\n")
+
+	l1(func(a *tc128.V) bool {
+		for i := 0; i < Size; i++ {
+			for j := 0; j < Size; j++ {
+				fmt.Printf("%f ", cmplx.Abs(a.X[i*Size+j]))
+			}
+			fmt.Printf("\n")
+		}
+		return true
+	})
+
+	return
+}
+
 // RanksComplex retunrs an array of ranks
 func RanksComplex(ranks []complex128) []rune {
 	sorted := make([]rune, 0, 8)
@@ -255,7 +371,7 @@ func RanksComplex(ranks []complex128) []rune {
 }
 
 // RankCompareComplex compares two ranking function
-func RankCompareComplex(set *tf32.Set) ([]int, *tc128.V) {
+func RankCompareComplex(set *tf32.Set, verbose bool) ([]int, *tc128.V) {
 	distances := make([]int, 2)
 	a := set.ByName["A"]
 
@@ -330,7 +446,11 @@ func RankCompareComplex(set *tf32.Set) ([]int, *tc128.V) {
 
 	distances[0] = levenshtein.DistanceForStrings(nonlinearMiddle, linear, levenshtein.DefaultOptions)
 	distances[1] = levenshtein.DistanceForStrings(nonlinear, linear, levenshtein.DefaultOptions)
-
+	if verbose {
+		fmt.Println(linear)
+		fmt.Println(nonlinearMiddle)
+		fmt.Println(nonlinear)
+	}
 	return distances, &x
 }
 
@@ -353,12 +473,17 @@ func main() {
 		distances := RankCompare(&set, true)
 		fmt.Println(distances)
 		return
+	} else if *TruthComplexFlag {
+		TruthRankComplex(&set)
+		distances, _ := RankCompareComplex(&set, true)
+		fmt.Println(distances)
+		return
 	}
 
 	distances := RankCompare(&set, true)
 	fmt.Println(distances)
 
-	distances, x := RankCompareComplex(&set)
+	distances, x := RankCompareComplex(&set, true)
 	fmt.Println(distances)
 	for _, value := range x.X {
 		fmt.Println(cmplx.Abs(value), cmplx.Phase(value))
@@ -375,7 +500,7 @@ func main() {
 		for i, v := range d {
 			distances[i] += v
 		}
-		d, _ = RankCompareComplex(&set)
+		d, _ = RankCompareComplex(&set, false)
 		for i, v := range d {
 			distancesComplex[i] += v
 		}
